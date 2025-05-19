@@ -1,6 +1,9 @@
 #include <iostream>
 #include <stdio.h>
 #include <string>
+#include <cstring>
+#include <stdlib.h>
+#include <limits>
 
 using namespace std;
 struct stokBarang
@@ -27,7 +30,7 @@ cabang* head = nullptr;
 
 void tambahCabang(){
     cabang* new_cabang = new cabang;
-    cout << "Nama cabang: "; cin.ignore();
+    cout << "Nama cabang: ";
     getline(cin, new_cabang->namaCabang);
     cout << "username: "; getline(cin, new_cabang->username);
     cout << "password: "; getline(cin, new_cabang->password);
@@ -45,6 +48,7 @@ void tambahCabang(){
     }
     cout << "Cabang berhasil ditambahkan";
 }
+
 void lihatCabang(){
     int i = 1;
     cabang* temp = head;
@@ -58,23 +62,36 @@ void lihatCabang(){
     }
 }
 
-void hapusCabang(string namaCabang){
-    if (head == nullptr)
-    {
-        cout << "belum ada cabang" << endl;
-    }
-    cabang *bantu, *hapus = head;
-    while(bantu->next->namaCabang != namaCabang){
-        bantu = bantu->next;
-    } 
-    hapus = bantu->next;
-    if(hapus->next== nullptr){
-        delete hapus;
-        bantu->next = nullptr;
+void hapusCabang(string namaCabang) {
+    if (head == nullptr) {
+        cout << "Belum ada cabang." << endl;
+        return;
     }
 
-    
+    // Jika yang dihapus adalah head
+    if (head->namaCabang == namaCabang) {
+        cabang* hapus = head;
+        head = head->next;
+        delete hapus;
+        cout << "Cabang berhasil dihapus." << endl;
+        return;
+    }
+
+    cabang* bantu = head;
+    while (bantu->next != nullptr && bantu->next->namaCabang != namaCabang) {
+        bantu = bantu->next;
+    }
+
+    if (bantu->next == nullptr) {
+        cout << "Cabang tidak ditemukan." << endl;
+    } else {
+        cabang* hapus = bantu->next;
+        bantu->next = hapus->next;
+        delete hapus;
+        cout << "Cabang berhasil dihapus." << endl;
+    }
 }
+
 void menuPusat() {
     int menu;
     do{
@@ -104,8 +121,10 @@ void menuPusat() {
             break;
         case 6: {
             string namaCabang;
-            cout << "Masukkan nama cabang yang ingin dihapus: "; getline(cin, namaCabang);
+            cout << "Masukkan nama cabang yang ingin dihapus: ";
+            getline(cin, namaCabang);
             hapusCabang(namaCabang);
+            lihatCabang(); // untuk memastikan hasil
             break;
         }
         default:
@@ -138,9 +157,24 @@ void tambahStok(cabang* temp){
 
     cout << "Stok berhasil ditambahkan.\n";
 }
-
+void cariStok(cabang *temp){
+    string namaBarang;
+    cout << "Nama barang yang dicari: "; cin.ignore(); getline(cin, namaBarang);
+    for(int i = 0; i < temp->jml_stok; i++){
+        if(temp->stok[i].namaBarang == namaBarang){
+            cout << "Nama Barang: " << temp->stok[i].namaBarang << endl;
+            cout << "Jumlah barang: " << temp->stok[i].jml_barang << endl;
+            cout << "Harga barang: " << temp->stok[i].harga << endl;
+            return;
+        }
+    }
+    cout << "barang tidak ditemukan" << endl;
+}
 void lihatStokCabang(cabang *temp){
-    if(temp->jml_stok == 0) cout << "belum ada stok" << endl;
+    if(temp->jml_stok == 0){
+        cout << "belum ada stok" << endl;
+        return;
+    }
     else{
         while(temp->stok != nullptr)
         cout << "Nama Barang: " << temp->stok->namaBarang << endl;
@@ -152,8 +186,8 @@ void lihatStokCabang(cabang *temp){
 }
 
 void buatLaporanKeuangan(cabang *temp){
-
 }
+
 void cabangFunction(cabang *temp){
     int pilih;
     do
@@ -163,7 +197,7 @@ void cabangFunction(cabang *temp){
         cout << "1. lihat stok produk";
         cout << "2. buat laporan keuangan";
         cout << "3. tambah stok";
-        cout << "4. lihat laporan penjualan";
+        cout << "4. cari stok";
         cout << "0. keluar";
         cout << "pilih menu: "; cin >> pilih;
         switch (pilih)
@@ -178,7 +212,7 @@ void cabangFunction(cabang *temp){
             tambahStok(temp);
             break;
         case 4:
-            /* code */
+            cariStok(temp);
             break;
         case 0:
             /* code */
@@ -211,8 +245,8 @@ cabang* loginCabang() {
 
 void loginFunction(){
     string username, password;
-    cout << "Username: "; cin.ignore(); getline(cin, username);
-    cout << "password: "; getline(cin, password);
+    cout << "Username: "; getline(cin, username);
+    cout << "Password: "; getline(cin, password);
 
     if (username == "adminPusat" && password == "adminPusat")
     {
@@ -223,11 +257,8 @@ void loginFunction(){
         {
             cabangFunction(cabangLogin);
         }
-        
     }
 }
-
-
 int main(){
-
+    loginFunction();
 }
