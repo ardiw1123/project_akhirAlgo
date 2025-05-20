@@ -188,17 +188,77 @@ void lihatStokCabang(cabang *temp){
 void buatLaporanKeuangan(cabang *temp){
 }
 
+void saveAllCabang(cabang* head) {
+    FILE* file = fopen("akun.txt", "a");  // mode "w" untuk overwrite file
+    if (file == NULL) {
+        cout << "Gagal membuka file untuk penyimpanan." << endl;
+        return;
+    }
+    
+    cabang* current = head;
+    while (current != nullptr) {
+        fprintf(file, "%s\n%s\n%s\n", 
+                current->namaCabang.c_str(),
+                current->username.c_str(),
+                current->password.c_str());
+        current = current->next;
+    }
+    fclose(file);
+}
+
+void readFileAkun(cabang** head) {  // Gunakan pointer ke pointer untuk mengubah head
+    FILE* file = fopen("akun.txt", "r");
+    if (file == NULL) {
+        cout << "File tidak ditemukan, akan dibuat baru saat menyimpan." << endl;
+        return;
+    }
+
+    char buffer[256];
+    while (true) {
+        cabang* new_cabang = new cabang();
+        
+        // Baca namaCabang
+        if (fgets(buffer, sizeof(buffer), file) == NULL) break;
+        buffer[strcspn(buffer, "\n")] = '\0';  // Hapus newline
+        new_cabang->namaCabang = buffer;
+        
+        // Baca username
+        if (fgets(buffer, sizeof(buffer), file) == NULL) break;
+        buffer[strcspn(buffer, "\n")] = '\0';
+        new_cabang->username = buffer;
+        
+        // Baca password
+        if (fgets(buffer, sizeof(buffer), file) == NULL) break;
+        buffer[strcspn(buffer, "\n")] = '\0';
+        new_cabang->password = buffer;
+        
+        new_cabang->next = nullptr;
+
+        // Tambahkan ke linked list
+        if (*head == nullptr) {
+            *head = new_cabang;
+        } else {
+            cabang* temp = *head;
+            while (temp->next != nullptr) {
+                temp = temp->next;
+            }
+            temp->next = new_cabang;
+        }
+    }
+    fclose(file);
+}
+
 void cabangFunction(cabang *temp){
     int pilih;
     do
     {
-        cout << "Selamat Datang admin " << temp->namaCabang;
-        cout << "menu";
-        cout << "1. lihat stok produk";
-        cout << "2. buat laporan keuangan";
-        cout << "3. tambah stok";
-        cout << "4. cari stok";
-        cout << "0. keluar";
+        cout << "Selamat Datang admin " << temp->namaCabang << endl;
+        cout << "menu" << endl;
+        cout << "1. lihat stok produk" << endl;
+        cout << "2. buat laporan keuangan" << endl;
+        cout << "3. tambah stok" << endl;
+        cout << "4. cari stok" << endl;
+        cout << "0. keluar" << endl;
         cout << "pilih menu: "; cin >> pilih;
         switch (pilih)
         {
@@ -224,41 +284,37 @@ void cabangFunction(cabang *temp){
     
 }
 
-cabang* loginCabang() {
-    string username, password;
-    cout << "username: "; cin.ignore();
-    getline(cin, username);
-    cout << "password: "; getline(cin, password);
+cabang* loginCabang(const string& username, const string& password) {
     cabang* temp = head;
-    while (temp != nullptr)
-    {
-        if(temp->username == username && temp->password == password) {
-            cout << "login berhasil, selamat datang di cabang " << temp->namaCabang << endl;
+    while (temp != nullptr) {
+        if (temp->username == username && temp->password == password) {
+            cout << "Login berhasil, selamat datang di cabang " << temp->namaCabang << endl;
             return temp;
         }
         temp = temp->next;
     }
-    cout << "Login gagal. Username atau password salah";
+    cout << "Login gagal. Username atau password salah." << endl;
     return nullptr;
 }
 
-
-void loginFunction(){
+void loginFunction() {
     string username, password;
-    cout << "Username: "; getline(cin, username);
-    cout << "Password: "; getline(cin, password);
+    cout << "Username: "; 
+    getline(cin, username);
+    cout << "Password: "; 
+    getline(cin, password);
 
-    if (username == "adminPusat" && password == "adminPusat")
-    {
+    if (username == "adminPusat" && password == "adminPusat") {
         menuPusat();
-    } else{
-        cabang* cabangLogin = loginCabang();
-        if (cabangLogin != nullptr )
-        {
+    } else {
+        cabang* cabangLogin = loginCabang(username, password);
+        if (cabangLogin != nullptr) {
             cabangFunction(cabangLogin);
         }
     }
 }
 int main(){
+    readFileAkun(&head);
     loginFunction();
+    saveAllCabang(head);
 }
