@@ -1,0 +1,2 @@
+Nama Barang,Jumlah,Harga
+nabati,20,1000.00

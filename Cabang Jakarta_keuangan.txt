@@ -1,0 +1,4 @@
+Pemasukan: 840000.00
+Pengeluaran: 0.00
+Saldo: 840000.00
+
