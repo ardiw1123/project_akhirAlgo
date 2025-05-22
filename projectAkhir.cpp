@@ -28,6 +28,8 @@ struct cabang
 };
 cabang* head = nullptr;
 
+void tambahCabangFile(cabang *head);
+
 void tambahCabang(){
     cabang* new_cabang = new cabang;
     cout << "Nama cabang: ";
@@ -47,6 +49,7 @@ void tambahCabang(){
         temp->next = new_cabang;
     }
     cout << "Cabang berhasil ditambahkan";
+    tambahCabangFile(head);
 }
 
 void lihatCabang(){
@@ -62,6 +65,8 @@ void lihatCabang(){
     }
 }
 
+void saveAllCabang(cabang* head);
+
 void hapusCabang(string namaCabang) {
     if (head == nullptr) {
         cout << "Belum ada cabang." << endl;
@@ -74,9 +79,9 @@ void hapusCabang(string namaCabang) {
         head = head->next;
         delete hapus;
         cout << "Cabang berhasil dihapus." << endl;
+        saveAllCabang(head); // Simpan perubahan ke file
         return;
     }
-
     cabang* bantu = head;
     while (bantu->next != nullptr && bantu->next->namaCabang != namaCabang) {
         bantu = bantu->next;
@@ -88,6 +93,7 @@ void hapusCabang(string namaCabang) {
         cabang* hapus = bantu->next;
         bantu->next = hapus->next;
         delete hapus;
+        saveAllCabang(head); // Simpan perubahan ke file
         cout << "Cabang berhasil dihapus." << endl;
     }
 }
@@ -188,8 +194,24 @@ void lihatStokCabang(cabang *temp){
 void buatLaporanKeuangan(cabang *temp){
 }
 
+void tambahCabangFile(cabang *head){
+    FILE* file = fopen("akun.txt", "a");
+    if (file == NULL) {
+        cout << "Gagal membuka file untuk penyimpanan." << endl;
+        return;
+    }
+    cabang* current = head;
+    while (current != nullptr) {
+        fprintf(file, "%s\n%s\n%s\n", 
+                current->namaCabang.c_str(),
+                current->username.c_str(),
+                current->password.c_str());
+        current = current->next;
+    }
+    fclose(file);
+}
 void saveAllCabang(cabang* head) {
-    FILE* file = fopen("akun.txt", "a");  // mode "w" untuk overwrite file
+    FILE* file = fopen("akun.txt", "w");  
     if (file == NULL) {
         cout << "Gagal membuka file untuk penyimpanan." << endl;
         return;
