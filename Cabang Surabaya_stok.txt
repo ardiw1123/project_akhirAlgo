@@ -1,0 +1,3 @@
+Nama Barang,Jumlah,Harga
+nabati,100,1000.00
+chocolatos,50,2000.00
