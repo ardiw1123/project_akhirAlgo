@@ -1,5 +1,7 @@
 {
-    "files.associations": {
-        "string_view": "cpp"
-    }
+  "files.associations": {
+    "string_view": "cpp",
+    "iomanip": "cpp",
+    "iostream": "cpp"
+  }
 }

@@ -1,10 +1,14 @@
 #include <iostream>
 #include <stdio.h>
 #include <string>
+#include <iomanip>
+#include <algorithm>
 #include <sstream>
 #include <cstring>
 #include <stdlib.h>
 #include <limits>
+#include <io.h>
+#include <vector>
 
 using namespace std;
 
@@ -189,13 +193,95 @@ void hapusCabang(string namaCabang) {
     }
 }
 
+void rekapStokKeFilePusat() {
+    struct TotalBarang {
+        string namaBarang;
+        int jumlah;
+        double hargaRata; // Untuk rata-rata harga
+        int countHarga;   // Menghitung berapa harga yang sudah diakumulasi
+    };
+
+    vector<TotalBarang> totalStok;
+
+    cabang* temp = head;
+    while (temp != NULL) {
+        string filename = temp->namaCabang + "_stok.txt";
+        FILE* file = fopen(filename.c_str(), "r");
+        if (file == NULL) {
+            cout << "[!] Gagal membuka file: " << filename << endl;
+            temp = temp->next;
+            continue;
+        }
+
+        char header[256];
+        fgets(header, sizeof(header), file); // Skip header
+
+        bool adaBarang = false;
+        char nama[100];
+        int jumlah;
+        double harga;
+        
+        while (fscanf(file, " %99[^,], %d, %lf", nama, &jumlah, &harga) == 3) {
+            adaBarang = true;
+            string namaStr(nama);
+
+            bool found = false;
+            for (auto& item : totalStok) {
+                if (item.namaBarang == namaStr) {
+                    item.jumlah += jumlah;
+                    item.hargaRata += harga;
+                    item.countHarga++;
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found) {
+                totalStok.push_back({namaStr, jumlah, harga, 1});
+            }
+        }
+
+        if (!adaBarang) {
+            cout << "[!] Tidak ada barang di file: " << filename << endl;
+        }
+
+        fclose(file);
+        temp = temp->next;
+    }
+
+    if (totalStok.empty()) {
+        cout << "[!] Tidak ada data stok dari semua cabang.\n";
+        return;
+    }
+
+    FILE* pusatFile = fopen("pusat_stok.txt", "w");
+    if (pusatFile == NULL) {
+        cout << "[!] Gagal membuat file pusat_stok.txt\n";
+        return;
+    }
+
+    fprintf(pusatFile, "Nama Barang,Total Jumlah,Harga Rata-rata\n");
+    for (const auto& item : totalStok) {
+        double avgPrice = item.hargaRata / item.countHarga;
+        fprintf(pusatFile, "%s,%d,%.2lf\n", 
+                item.namaBarang.c_str(), 
+                item.jumlah, 
+                avgPrice);
+    }
+    fclose(pusatFile);
+
+    cout << "[✓] Rekap stok berhasil disimpan ke 'pusat_stok.txt'.\n";
+    cout << "[i] Total barang unik: " << totalStok.size() << endl;
+}
+
+
+
 void lihatStokSemuaCabang(){
     cabang* temp = head;
     if (temp == NULL) {
         cout << "Belum ada cabang yang terdaftar." << endl;
         return;
     }
-
     int mode;
     cout << "Pilih sorting:\n";
     cout << "0. Nama A-Z\n1. Nama Z-A\n";
@@ -205,21 +291,42 @@ void lihatStokSemuaCabang(){
     cin.ignore();
 
     while (temp != NULL) {
+        string filename = temp->namaCabang + "_stok.txt";
+        FILE* file = fopen(filename.c_str(), "r"); 
+        if (file == NULL) {
+            cout << "Gagal membuka file stok cabang: " << temp->namaCabang << endl;
+            temp = temp->next;
+            continue;
+        }
         cout << "\n=== Stok Cabang " << temp->namaCabang << " ===" << endl;
+         // Baca data dari file ke array sementara
+        stokBarang tempStok[1000];
+        int jumlahBarang = 0;
+        char buffer[256];
         
-        if (temp->jml_stok == 0) {
+        // Lewati header
+        fgets(buffer, sizeof(buffer), file);
+         while (fgets(buffer, sizeof(buffer), file) && jumlahBarang < 1000) {
+            char nama[100];
+            int stok;
+            double harga;
+            
+            if (sscanf(buffer, "%[^,],%d,%lf", nama, &stok, &harga) == 3) {
+                tempStok[jumlahBarang].namaBarang = nama;
+                tempStok[jumlahBarang].jml_barang = stok;
+                tempStok[jumlahBarang].harga = harga;
+                jumlahBarang++;
+            }
+        }
+        fclose(file);
+         if (jumlahBarang == 0) {
             cout << "Belum ada barang" << endl;
         } else {
-            // Buat salinan untuk di-sort
-            stokBarang tempStok[1000];
-            for (int i = 0; i < temp->jml_stok; i++) {
-                tempStok[i] = temp->stok[i];
-            }
-            
-            shellSort(tempStok, temp->jml_stok, mode);
+            // Sorting data
+            shellSort(tempStok, jumlahBarang, mode);
             
             // Tampilkan hasil
-            for (int i = 0; i < temp->jml_stok; i++) {
+            for (int i = 0; i < jumlahBarang; i++) {
                 cout << "Nama: " << tempStok[i].namaBarang << endl;
                 cout << "Stok: " << tempStok[i].jml_barang << endl;
                 cout << "Harga: " << tempStok[i].harga << endl;
@@ -266,35 +373,161 @@ void cariBarangSemuaCabang() {
     }
 }
 
-void lihatLaporanKeuanganSemuaCabang() {
+void rekapKeuanganKeFilePusat() {
+    double totalPemasukan = 0;
+    double totalPengeluaran = 0;
+    double totalSaldo = 0;
+
     cabang* temp = head;
-    if (temp == NULL) {
-        cout << "Belum ada cabang yang terdaftar." << endl;
+    while (temp != NULL) {
+        string filename = temp->namaCabang + "_keuangan.txt";
+        cout << "[DEBUG] Membaca file: " << filename << endl;
+        
+        FILE* file = fopen(filename.c_str(), "r");
+        if (file == NULL) {
+            cout << "[!] Gagal membuka file: " << filename << endl;
+            temp = temp->next;
+            continue;
+        }
+
+        char buffer[256];
+        while (fgets(buffer, sizeof(buffer), file)) {
+            string line(buffer);
+            
+            cout << "[DEBUG] Baris: " << line;
+
+            // Skip baris yang tidak relevan
+            if (line.find("Kategori") != string::npos || 
+                line.find("---") != string::npos ||
+                line.empty()) {
+                continue;
+            }
+
+            // Parse format: "Kategori<spasi>Nilai"
+            char kategori[50];
+            double nilai;
+            
+            if (sscanf(line.c_str(), "%49s %lf", kategori, &nilai) == 2) {
+                cout << "[DEBUG] Parsed: " << kategori << " = " << nilai << endl;
+
+                if (strcmp(kategori, "Pemasukan") == 0) {
+                    totalPemasukan += nilai;
+                } else if (strcmp(kategori, "Pengeluaran") == 0) {
+                    totalPengeluaran += nilai;
+                } else if (strcmp(kategori, "Saldo") == 0) {
+                    totalSaldo += nilai;
+                }
+            } else {
+                cout << "[!] Gagal parse baris: " << line;
+            }
+        }
+        fclose(file);
+        temp = temp->next;
+    }
+
+    // Simpan ke file pusat
+    FILE* pusatFile = fopen("pusat_keuangan.txt", "w");
+    if (pusatFile == NULL) {
+        cout << "[!] Gagal membuat file rekap" << endl;
         return;
     }
 
-    float totalSaldo = 0;
-    cout << "\n=== Laporan Keuangan Semua Cabang ===" << endl;
+    fprintf(pusatFile, "=== REKAP KEUANGAN SEMUA CABANG ===\n\n");
+    fprintf(pusatFile, "%-15s: %12.2f\n", "Total Pemasukan", totalPemasukan);
+    fprintf(pusatFile, "%-15s: %12.2f\n", "Total Pengeluaran", totalPengeluaran);
+    fprintf(pusatFile, "%-15s: %12.2f\n", "Total Saldo", totalSaldo);
+    fprintf(pusatFile, "%-15s: %12.2f\n", "Bersih", totalPemasukan - totalPengeluaran);
+    fclose(pusatFile);
+
+    // Output ke console 
+    cout << "\n=== HASIL REKAP FINAL ===" << endl;
+    cout << "---------------------------------" << endl;
+    cout << left << setw(20) << "Total Pemasukan" << ": Rp. " << fixed << setprecision(2) << totalPemasukan << endl;
+    cout << setw(20) << "Total Pengeluaran" << ": Rp. " << totalPengeluaran << endl;
+    cout << setw(20) << "Total Saldo" << ": Rp. " << totalSaldo << endl;
+    cout << setw(20) << "Saldo Bersih" << ": Rp. " << (totalPemasukan - totalPengeluaran) << endl;
+    cout << "---------------------------------" << endl;
+}
+
+void lihatLaporanKeuanganSemuaCabang() {
+    cabang* temp = head;
+    if (temp == NULL) {
+        printf("\nBelum ada cabang yang terdaftar.\n");
+        return;
+    }
+
+    // Header tabel
+    printf("\n=== LAPORAN KEUANGAN SEMUA CABANG ===\n");
+    printf("+----------------------+----------------+----------------+----------------+\n");
+    printf("| %-20s | %14s | %14s | %14s |\n", "CABANG", "PEMASUKAN", "PENGELUARAN", "SALDO");
+    printf("+----------------------+----------------+----------------+----------------+\n");
+
+    double totalPemasukan = 0, totalPengeluaran = 0, totalSaldo = 0;
+
     while (temp != NULL) {
-        cout << "Cabang: " << temp->namaCabang << endl;
-        cout << "Pemasukan: " << temp->keuangan.pemasukan << endl;
-        cout << "Pengeluaran: " << temp->keuangan.pengeluaran << endl;
-        cout << "Saldo: " << temp->keuangan.sisa_saldo << endl;
-        cout << "-------------------------" << endl;
-        totalSaldo += temp->keuangan.sisa_saldo;
+        char filename[100];
+        sprintf(filename, "%s_keuangan.txt", temp->namaCabang.c_str());
+        
+        FILE* file = fopen(filename, "r");
+        double pemasukan = 0, pengeluaran = 0, saldo = 0;
+        
+        if (file != NULL) {
+            char buffer[256];
+            while (fgets(buffer, sizeof(buffer), file)) {
+                char* line = buffer;
+                
+                // Remove newline character
+                line[strcspn(line, "\n")] = 0;
+                
+                if (strstr(line, "Pemasukan")) {
+                    sscanf(line, "Pemasukan %lf", &pemasukan);
+                } 
+                else if (strstr(line, "Pengeluaran")) {
+                    sscanf(line, "Pengeluaran %lf", &pengeluaran);
+                } 
+                else if (strstr(line, "Saldo")) {
+                    sscanf(line, "Saldo %lf", &saldo);
+                }
+            }
+            fclose(file);
+        }
+
+        // Format output untuk setiap cabang
+        printf("| %-20s | %14.2f | %14.2f | %14.2f |\n", 
+               temp->namaCabang.c_str(), 
+               pemasukan, 
+               pengeluaran, 
+               saldo);
+        
+        totalPemasukan += pemasukan;
+        totalPengeluaran += pengeluaran;
+        totalSaldo += saldo;
+        
         temp = temp->next;
     }
-    cout << "TOTAL SALDO SEMUA CABANG: " << totalSaldo << endl;
+
+    // Footer tabel dengan total
+    printf("+----------------------+----------------+----------------+----------------+\n");
+    printf("| %-20s | %14.2f | %14.2f | %14.2f |\n", 
+           "TOTAL", 
+           totalPemasukan, 
+           totalPengeluaran, 
+           totalSaldo);
+    printf("+----------------------+----------------+----------------+----------------+\n");
 }
 
 void stokCabangFile(cabang *temp){
     string filename = temp->namaCabang + "_stok.txt";
+    // Cek apakah file sudah ada
+    bool fileExists = (access(filename.c_str(), F_OK) != -1);
     FILE* file = fopen(filename.c_str(), "a");
     if (file == NULL) {
         cout << "Gagal membuka file untuk penyimpanan." << endl;
         return;
     }
-    fprintf(file, "Nama Barang,Jumlah,Harga\n");  // Header CSV
+    if (!fileExists) {
+        fprintf(file, "Nama Barang,Jumlah,Harga\n");
+    }
     for(int i = 0; i < temp->jml_stok; i++){
         fprintf(file, "%s,%d,%.2f\n", 
             temp->stok[i].namaBarang.c_str(),
@@ -320,70 +553,187 @@ void tambahStok(cabang* temp){
     stokCabangFile(temp);
 }
 
-void lihatStockFile(cabang *temp){
+void lihatStockFile(cabang *temp) {
     string filename = temp->namaCabang + "_stok.txt";
     FILE* file = fopen(filename.c_str(), "r");
     if (file == NULL) {
-        cout << "Gagal membuka file untuk pembacaan." << endl;
+        cout << "Gagal membuka file stok cabang." << endl;
         return;
     }
+
+    cout << "\n=== STOK CABANG " << temp->namaCabang << " ===\n";
+    cout << "---------------------------------\n";
+    cout << left << setw(20) << "NAMA BARANG" 
+         << setw(10) << "JUMLAH" 
+         << setw(10) << "HARGA" << endl;
+    cout << "---------------------------------\n";
+
     char buffer[256];
-    cout << "=== Stok Cabang " << temp->namaCabang << " ===" << endl;
+    // Lewati header (baris pertama)
+    fgets(buffer, sizeof(buffer), file);
+    
     while (fgets(buffer, sizeof(buffer), file) != NULL) {
-        cout << buffer;
+        stringstream ss(buffer);
+        string nama, jumlah, harga;
+        
+        getline(ss, nama, ',');
+        getline(ss, jumlah, ',');
+        getline(ss, harga);
+        
+        // Bersihkan whitespace
+        nama.erase(remove(nama.begin(), nama.end(), ' '), nama.end());
+        jumlah.erase(remove(jumlah.begin(), jumlah.end(), ' '), jumlah.end());
+        harga.erase(remove(harga.begin(), harga.end(), ' '), harga.end());
+        
+        cout << left << setw(20) << nama 
+             << setw(10) << jumlah 
+             << "Rp. " << harga << endl;
     }
+    
+    cout << "---------------------------------\n";
     fclose(file);
 }
 
-void lihatStokCabang(cabang *temp){
-    if(temp->jml_stok == 0){
-        cout << "belum ada stok" << endl;
+void cariStok(cabang *temp) {
+    string filename = temp->namaCabang + "_stok.txt";
+    FILE* file = fopen(filename.c_str(), "r");
+    if (file == NULL) {
+        cout << "File stok tidak ditemukan" << endl;
         return;
     }
-    lihatStockFile(temp);
-}
 
-void cariStok(cabang *temp){
-    string keyword;
-    int mode;
+    char buffer[256];
+    // Lewati header
+    fgets(buffer, sizeof(buffer), file);
     
+    int mode;
     cout << "Pilih pencarian:\n";
     cout << "0. Berdasarkan nama\n1. Berdasarkan stok\n";
     cout << "Pilihan: "; 
     cin >> mode;
     cin.ignore();
     
+    string keyword;
     cout << (mode ? "Jumlah stok: " : "Nama barang: ");
     getline(cin, keyword);
     
-    int index = searchStok(temp->stok, temp->jml_stok, keyword, mode);
-    if (index != -1) {
-        cout << "\nHasil Pencarian:" << endl;
-        cout << "Nama: " << temp->stok[index].namaBarang << endl;
-        cout << "Stok: " << temp->stok[index].jml_barang << endl;
-        cout << "Harga: " << temp->stok[index].harga << endl;
-    } else {
+    bool ditemukan = false;
+    cout << "\nHasil Pencarian:" << endl;
+    
+    while (fgets(buffer, sizeof(buffer), file)) {
+        char nama[100];
+        int jumlah;
+        float harga;
+        
+        // Parsing data dari CSV
+        if (sscanf(buffer, "%[^,],%d,%f", nama, &jumlah, &harga) != 3) {
+            continue; // Skip baris yang tidak valid
+        }
+        
+        bool match = false;
+        if (mode == 0) {
+            // Cari berdasarkan nama (case sensitive sederhana)
+            match = (strstr(nama, keyword.c_str()) != NULL);
+        } else {
+            // Cari berdasarkan stok
+            match = (jumlah == stoi(keyword));
+        }
+        
+        if (match) {
+            cout << "-----------------------------" << endl;
+            cout << "Nama: " << nama << endl;
+            cout << "Stok: " << jumlah << endl;
+            cout << "Harga: Rp. " << fixed << setprecision(2) << harga << endl;
+            ditemukan = true;
+        }
+    }
+    
+    if (!ditemukan) {
         cout << "Barang tidak ditemukan" << endl;
     }
+    
+    fclose(file);
 }
 
-void lihatLaporanKeuanganCabang(cabang *temp) {
-    cout << "\n=== Laporan Keuangan Cabang " << temp->namaCabang << " ===" << endl;
-    cout << "Pemasukan: " << temp->keuangan.pemasukan << endl;
-    cout << "Pengeluaran: " << temp->keuangan.pengeluaran << endl;
-    cout << "Saldo: " << temp->keuangan.sisa_saldo << endl;
+void lihatKeuanganCabang(cabang *temp) {
+    string filename = temp->namaCabang + "_keuangan.txt";
+    FILE* file = fopen(filename.c_str(), "r");
+    
+    if (file == NULL) {
+        cout << "Belum ada laporan keuangan tersedia" << endl;
+        return;
+    }
+
+    cout << "\n=== LAPORAN KEUANGAN CABANG " << temp->namaCabang << " ===\n";
+    
+    char buffer[256];
+    double saldo_awal = 0.0;
+    double saldo_akhir = 0.0;
+    bool first_saldo = true;
+    int entry_count = 0;
+
+    // Baca header dan garis pemisah pertama
+    fgets(buffer, sizeof(buffer), file); // Kategori header
+    fgets(buffer, sizeof(buffer), file); // Garis pemisah
+
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        string line(buffer);
+        if (!line.empty() && line.back() == '\n') {
+            line.pop_back();
+        }
+
+        // Cek jika ini garis pemisah
+        if (line.find("---") != string::npos) {
+            entry_count++;
+            continue;
+        }
+
+        // Parse data keuangan
+        size_t tab_pos = line.find('\t');
+        if (tab_pos != string::npos) {
+            string kategori = line.substr(0, tab_pos);
+            string str_nilai = line.substr(tab_pos + 2); // Skip \t\t
+            double nilai = stod(str_nilai);
+
+            if (kategori == "Saldo") {
+                if (first_saldo) {
+                    saldo_awal = nilai;
+                    first_saldo = false;
+                }
+                saldo_akhir = nilai;
+            }
+
+            cout << left << setw(12) << kategori << "Rp. " << fixed << setprecision(2) << nilai << endl;
+        }
+    }
+
+    // Hitung dan tampilkan ringkasan
+    cout << "-------------------------" << endl;
+    cout << "SALDO AWAL\t\tRp. " << saldo_awal << endl;
+    cout << "SALDO AKHIR\t\tRp. " << saldo_akhir << endl;
+    cout << "TOTAL PERUBAHAN\t\tRp. " << (saldo_akhir - saldo_awal) << endl;
+    cout << "-------------------------" << endl;
+
+    fclose(file);
 }
 
 void keuanganCabangFile(cabang *temp){
     string filename = string(temp->namaCabang) + "_keuangan.txt";
+    bool fileExists = (access(filename.c_str(), F_OK) != -1);
     FILE* file = fopen(filename.c_str(), "a");
     if (file == NULL) {
         cout << "Gagal membuka file untuk penyimpanan." << endl;
         return;
     }
-    fprintf(file, "Pemasukan: %.2f\n", temp->keuangan.pemasukan);
-    fprintf(file, "Pengeluaran: %.2f\n", temp->keuangan.pengeluaran);
-    fprintf(file, "Saldo: %.2f\n\n", temp->keuangan.sisa_saldo);
+    // Cek apakah file sudah ada
+    if (!fileExists) {
+        fprintf(file, "Kategori\t\tJumlah\n");
+        fprintf(file, "-------------------------\n");
+    }
+    fprintf(file, "Pemasukan\t\t%.2f\n", temp->keuangan.pemasukan);
+    fprintf(file, "Pengeluaran\t\t%.2f\n", temp->keuangan.pengeluaran);
+    fprintf(file, "Saldo\t\t\t%.2f\n", temp->keuangan.sisa_saldo);
+    fprintf(file, "-------------------------\n");
     fclose(file);
 }
 
@@ -473,10 +823,12 @@ void menuPusat() {
         cout << "Menu" << endl;
         cout << "1. Lihat daftar cabang" << endl;
         cout << "2. Tambah cabang" << endl;
-        cout << "3. Lihat stok barang" << endl;
-        cout << "4. Cari stok" << endl;
-        cout << "5. Lihat keuangan" << endl;
-        cout << "6. Hapus cabang" << endl;
+        cout << "3. Load stok barang dari cabang" << endl;
+        cout << "4. Lihat stok barang" << endl;
+        cout << "5. Cari stok" << endl;
+        cout << "6. Load keuangan dari cabang" << endl;
+        cout << "7. Lihat laporan keuangan" << endl;
+        cout << "8. Hapus cabang" << endl;
         cout << "0. exit" << endl;
         cout << "pilih menu: "; cin >> menu;
         cin.ignore();
@@ -489,15 +841,21 @@ void menuPusat() {
             tambahCabang();
             break;
         case 3:
-            lihatStokSemuaCabang();
+            rekapStokKeFilePusat();
             break;
         case 4:
-            cariBarangSemuaCabang();
+            lihatStokSemuaCabang();
             break;
         case 5:
+            cariBarangSemuaCabang();
+            break;
+        case 6:
+            rekapKeuanganKeFilePusat();
+            break;
+        case 7:
             lihatLaporanKeuanganSemuaCabang();
             break;
-        case 6: {
+        case 8: {
             string namaCabang;
             cout << "Masukkan nama cabang yang ingin dihapus: ";
             getline(cin, namaCabang);
@@ -519,6 +877,7 @@ void cabangFunction(cabang *temp){
     int pilih;
     do
     {
+        system("cls");
         cout << "Selamat Datang admin " << temp->namaCabang << endl;
         cout << "menu" << endl;
         cout << "1. lihat stok produk" << endl;
@@ -528,10 +887,11 @@ void cabangFunction(cabang *temp){
         cout << "5. Lihat Laporan Keuangan" << endl;
         cout << "0. keluar" << endl;
         cout << "pilih menu: "; cin >> pilih;
+        cin.ignore(); 
         switch (pilih)
         {
         case 1:
-            lihatStokCabang(temp);
+            lihatStockFile(temp);
             break;
         case 2:
             buatLaporanKeuangan(temp);
@@ -543,7 +903,7 @@ void cabangFunction(cabang *temp){
             cariStok(temp);
             break;
         case 5:
-            lihatLaporanKeuanganCabang(temp);
+            lihatKeuanganCabang(temp);
             break;
         case 0:
             exit(0);
@@ -552,6 +912,8 @@ void cabangFunction(cabang *temp){
             cout << "Pilihan Tidak Valid!" << endl;
             break;
         }
+        cout << "Press any key to continue...\n";
+        cin.get();
     } while (pilih != 0);
     
 }
@@ -560,7 +922,7 @@ cabang* loginCabang(const string& username, const string& password) {
     cabang* temp = head;
     while (temp != NULL) {
         if (temp->username == username && temp->password == password) {
-            cout << "Login berhasil, selamat datang di cabang " << temp->namaCabang << endl;
+            cout << "Login berhasil, selamat datang di " << temp->namaCabang << endl;
             return temp;
         }
         temp = temp->next;
