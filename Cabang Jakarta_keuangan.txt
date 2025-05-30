@@ -1,4 +1,10 @@
-Pemasukan: 840000.00
-Pengeluaran: 0.00
-Saldo: 840000.00
-
+Kategori		Jumlah
+-------------------------
+Pemasukan		100000.00
+Pengeluaran		0.00
+Saldo			100000.00
+-------------------------
+Pemasukan		100000.00
+Pengeluaran		5000000.00
+Saldo			-4900000.00
+-------------------------
