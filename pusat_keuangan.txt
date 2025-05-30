@@ -1,6 +1,6 @@
 === REKAP KEUANGAN SEMUA CABANG ===
 
-Total Pemasukan:    260000.00
-Total Pengeluaran:   5000000.00
-Total Saldo    :  -4740000.00
-Bersih         :  -4740000.00
+Total Pemasukan:    301000.00
+Total Pengeluaran:     60000.00
+Total Saldo    :    241000.00
+Bersih         :    241000.00

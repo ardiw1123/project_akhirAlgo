@@ -1,6 +1,6 @@
-Kategori		Jumlah
+Kategori    Jumlah
 -------------------------
-Pemasukan		60000.00
-Pengeluaran		0.00
-Saldo			60000.00
+Pemasukan    1000.00
+Pengeluaran    0.00
+Saldo    1000.00
 -------------------------
